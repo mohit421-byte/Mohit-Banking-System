@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta name="viewport"
@@ -12,18 +11,21 @@
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
-
 </head>
 
 <body class="dashboard-body">
 
-    <!-- Animated Background -->
+    <!-- =========================
+         ANIMATED BACKGROUND
+    ========================== -->
 
     <div class="dashboard-glow glow-one"></div>
     <div class="dashboard-glow glow-two"></div>
 
 
-    <!-- NAVBAR -->
+    <!-- =========================
+         NAVBAR
+    ========================== -->
 
     <nav class="navbar">
 
@@ -34,8 +36,13 @@
             </div>
 
             <div>
-                <h2>MOHIT BANKING SYSTEM</h2>
-                <span>SMART BANKING</span>
+                <h2>
+                    MOHIT BANKING SYSTEM
+                </h2>
+
+                <span>
+                    SMART BANKING
+                </span>
             </div>
 
         </div>
@@ -50,9 +57,7 @@
 
             <a href="{{ url_for('logout') }}"
                class="logout-btn">
-
                 Logout
-
             </a>
 
         </div>
@@ -60,12 +65,17 @@
     </nav>
 
 
-    <!-- MAIN -->
+
+    <!-- =========================
+         MAIN DASHBOARD
+    ========================== -->
 
     <main class="dashboard-container">
 
 
-        <!-- WELCOME -->
+        <!-- =========================
+             WELCOME SECTION
+        ========================== -->
 
         <section class="welcome-section">
 
@@ -102,7 +112,9 @@
 
 
 
-        <!-- BALANCE CARD -->
+        <!-- =========================
+             BALANCE CARD
+        ========================== -->
 
         <section class="balance-card">
 
@@ -174,11 +186,17 @@
 
 
 
-        <!-- ACTION BUTTONS -->
+        <!-- =========================
+             QUICK ACTIONS
+        ========================== -->
 
         <section class="quick-actions">
 
+
+            <!-- DEPOSIT -->
+
             <button
+                type="button"
                 class="action-card"
                 onclick="openModal('depositModal')">
 
@@ -201,7 +219,11 @@
             </button>
 
 
+
+            <!-- WITHDRAW -->
+
             <button
+                type="button"
                 class="action-card"
                 onclick="openModal('withdrawModal')">
 
@@ -224,9 +246,15 @@
             </button>
 
 
+
+            <!-- =========================
+                 MONEY TRANSFER
+            ========================== -->
+
             <button
+                type="button"
                 class="action-card"
-                onclick="showComingSoon()">
+                onclick="window.location.href='{{ url_for('transfer') }}'">
 
                 <div class="action-icon transfer-icon">
                     ⇄
@@ -247,7 +275,11 @@
             </button>
 
 
+
+            <!-- VIRTUAL CARD -->
+
             <button
+                type="button"
                 class="action-card"
                 onclick="showComingSoon()">
 
@@ -273,12 +305,16 @@
 
 
 
-        <!-- CONTENT GRID -->
+        <!-- =========================
+             CONTENT GRID
+        ========================== -->
 
         <section class="content-grid">
 
 
-            <!-- TRANSACTIONS -->
+            <!-- =========================
+                 TRANSACTIONS
+            ========================== -->
 
             <div class="panel transactions-panel">
 
@@ -296,11 +332,13 @@
 
                     </div>
 
+
                     <span class="transaction-count">
                         {{ transactions|length }}
                     </span>
 
                 </div>
+
 
 
                 {% if transactions %}
@@ -311,21 +349,39 @@
 
                             <div class="transaction">
 
+
+                                <!-- TRANSACTION ICON -->
+
                                 <div class="transaction-icon
+
                                     {% if transaction.type == 'deposit' %}
+                                        positive
+                                    {% elif transaction.type == 'TRANSFER_RECEIVED' %}
                                         positive
                                     {% else %}
                                         negative
                                     {% endif %}">
 
+
                                     {% if transaction.type == 'deposit' %}
+
                                         ↓
+
+                                    {% elif transaction.type == 'TRANSFER_RECEIVED' %}
+
+                                        ↓
+
                                     {% else %}
+
                                         ↑
+
                                     {% endif %}
 
                                 </div>
 
+
+
+                                <!-- TRANSACTION INFORMATION -->
 
                                 <div class="transaction-info">
 
@@ -340,8 +396,14 @@
                                 </div>
 
 
+
+                                <!-- TRANSACTION AMOUNT -->
+
                                 <div class="transaction-amount
+
                                     {% if transaction.type == 'deposit' %}
+                                        positive-text
+                                    {% elif transaction.type == 'TRANSFER_RECEIVED' %}
                                         positive-text
                                     {% else %}
                                         negative-text
@@ -356,6 +418,7 @@
                         {% endfor %}
 
                     </div>
+
 
                 {% else %}
 
@@ -381,9 +444,12 @@
 
 
 
-            <!-- PROFILE -->
+            <!-- =========================
+                 PROFILE
+            ========================== -->
 
             <div class="panel profile-panel">
+
 
                 <div class="panel-header">
 
@@ -402,6 +468,9 @@
                 </div>
 
 
+
+                <!-- PROFILE AVATAR -->
+
                 <div class="profile-avatar">
 
                     {{ user.name[0]|upper }}
@@ -409,17 +478,27 @@
                 </div>
 
 
+
                 <h3 class="profile-name">
+
                     {{ user.name }}
+
                 </h3>
 
 
+
                 <p class="profile-type">
+
                     {{ user.account_type }} Account
+
                 </p>
 
 
+
+                <!-- PROFILE DETAILS -->
+
                 <div class="profile-details">
+
 
                     <div>
 
@@ -432,6 +511,7 @@
                         </strong>
 
                     </div>
+
 
 
                     <div>
@@ -447,6 +527,7 @@
                     </div>
 
 
+
                     <div>
 
                         <span>
@@ -460,6 +541,7 @@
                     </div>
 
                 </div>
+
 
 
                 <div class="secure-badge">
@@ -478,7 +560,9 @@
 
 
 
-        <!-- INFO BANNER -->
+        <!-- =========================
+             INFORMATION BANNER
+        ========================== -->
 
         <section class="info-banner">
 
@@ -489,7 +573,7 @@
             <div>
 
                 <strong>
-                    MOHIT BANKING SYSTEM Security
+                    Mohit Banking Security
                 </strong>
 
                 <p>
@@ -506,16 +590,21 @@
 
 
 
-    <!-- DEPOSIT MODAL -->
+    <!-- =========================
+         DEPOSIT MODAL
+    ========================== -->
 
     <div
         class="modal"
         id="depositModal"
         onclick="closeOutside(event, 'depositModal')">
 
+
         <div class="modal-box">
 
+
             <button
+                type="button"
                 class="close-modal"
                 onclick="closeModal('depositModal')">
 
@@ -525,26 +614,38 @@
 
 
             <div class="modal-icon deposit-modal-icon">
+
                 ↓
+
             </div>
 
 
             <h2>
+
                 Deposit Money
+
             </h2>
 
+
             <p>
+
                 Enter the amount you want to deposit.
+
             </p>
+
 
 
             <form
                 method="POST"
                 action="{{ url_for('deposit') }}">
 
+
                 <div class="amount-input">
 
-                    <span>₹</span>
+                    <span>
+                        ₹
+                    </span>
+
 
                     <input
                         type="number"
@@ -555,6 +656,7 @@
                         required>
 
                 </div>
+
 
 
                 <button
@@ -573,16 +675,21 @@
 
 
 
-    <!-- WITHDRAW MODAL -->
+    <!-- =========================
+         WITHDRAW MODAL
+    ========================== -->
 
     <div
         class="modal"
         id="withdrawModal"
         onclick="closeOutside(event, 'withdrawModal')">
 
+
         <div class="modal-box">
 
+
             <button
+                type="button"
                 class="close-modal"
                 onclick="closeModal('withdrawModal')">
 
@@ -592,26 +699,38 @@
 
 
             <div class="modal-icon withdraw-modal-icon">
+
                 ↑
+
             </div>
 
 
             <h2>
+
                 Withdraw Money
+
             </h2>
 
+
             <p>
+
                 Enter the amount you want to withdraw.
+
             </p>
+
 
 
             <form
                 method="POST"
                 action="{{ url_for('withdraw') }}">
 
+
                 <div class="amount-input">
 
-                    <span>₹</span>
+                    <span>
+                        ₹
+                    </span>
+
 
                     <input
                         type="number"
@@ -622,6 +741,7 @@
                         required>
 
                 </div>
+
 
 
                 <button
@@ -640,7 +760,9 @@
 
 
 
-    <!-- TOAST -->
+    <!-- =========================
+         FLASH MESSAGES / TOAST
+    ========================== -->
 
     {% with messages = get_flashed_messages(with_categories=true) %}
 
@@ -653,11 +775,17 @@
                     id="toast">
 
                     <span>
+
                         {% if category == "success" %}
+
                             ✓
+
                         {% else %}
+
                             !
+
                         {% endif %}
+
                     </span>
 
                     {{ message }}
@@ -672,29 +800,54 @@
 
 
 
+    <!-- =========================
+         JAVASCRIPT
+    ========================== -->
+
     <script>
 
-        // =========================
-        // MODAL
-        // =========================
+
+        /* =========================
+           OPEN MODAL
+        ========================== */
 
         function openModal(id) {
 
-            document
-                .getElementById(id)
-                .classList.add("active");
+            const modal =
+                document.getElementById(id);
+
+            if (modal) {
+
+                modal.classList.add("active");
+
+            }
 
         }
 
+
+
+        /* =========================
+           CLOSE MODAL
+        ========================== */
 
         function closeModal(id) {
 
-            document
-                .getElementById(id)
-                .classList.remove("active");
+            const modal =
+                document.getElementById(id);
+
+            if (modal) {
+
+                modal.classList.remove("active");
+
+            }
 
         }
 
+
+
+        /* =========================
+           CLOSE WHEN CLICKING OUTSIDE
+        ========================== */
 
         function closeOutside(event, id) {
 
@@ -707,58 +860,73 @@
         }
 
 
-        // =========================
-        // COMING SOON
-        // =========================
+
+        /* =========================
+           COMING SOON
+        ========================== */
 
         function showComingSoon() {
 
             alert(
-                "This feature will be added in the next version."
+                "Virtual Card feature will be added in the next version."
             );
 
         }
 
 
-        // =========================
-        // BALANCE ANIMATION
-        // =========================
+
+        /* =========================
+           BALANCE ANIMATION
+        ========================== */
 
         window.addEventListener(
             "load",
             function () {
 
+
                 const element =
                     document.getElementById("balance");
 
-                if (!element) return;
+
+                if (!element) {
+
+                    return;
+
+                }
+
 
                 const target =
                     parseFloat(
-                        element.textContent.replace(
-                            /,/g,
-                            ""
-                        )
+                        element.textContent
+                            .replace(/,/g, "")
                     ) || 0;
+
 
                 let current = 0;
 
+
                 const duration = 900;
+
 
                 const start =
                     performance.now();
 
 
+
                 function animate(time) {
+
 
                     const progress =
                         Math.min(
-                            (time - start) / duration,
+                            (time - start) /
+                            duration,
                             1
                         );
 
+
                     current =
                         target * progress;
+
 
                     element.textContent =
                         current.toLocaleString(
@@ -768,6 +936,7 @@
                                 maximumFractionDigits: 2
                             }
                         );
+
 
                     if (progress < 1) {
 
@@ -779,6 +948,7 @@
 
                 }
 
+
                 requestAnimationFrame(
                     animate
                 );
@@ -787,21 +957,22 @@
         );
 
 
-        // =========================
-        // AUTO HIDE TOAST
-        // =========================
+
+        /* =========================
+           AUTO HIDE TOAST
+        ========================== */
 
         setTimeout(
             function () {
 
+
                 const toast =
                     document.getElementById("toast");
 
+
                 if (toast) {
 
-                    toast.classList.add(
-                        "hide"
-                    );
+                    toast.classList.add("hide");
 
                 }
 
@@ -810,18 +981,23 @@
         );
 
 
-        // =========================
-        // ESC CLOSE MODAL
-        // =========================
+
+        /* =========================
+           ESC KEY CLOSE MODAL
+        ========================== */
 
         document.addEventListener(
             "keydown",
             function(event) {
 
+
                 if (event.key === "Escape") {
 
+
                     document
-                        .querySelectorAll(".modal.active")
+                        .querySelectorAll(
+                            ".modal.active"
+                        )
                         .forEach(
                             function(modal) {
 
@@ -837,7 +1013,9 @@
             }
         );
 
+
     </script>
+
 
 </body>
 
