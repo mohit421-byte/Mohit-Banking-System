@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from decimal import Decimal, InvalidOperation
+from datetime import datetime
 import os
 import uuid
 import psycopg2
@@ -9,16 +10,16 @@ from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 
-# ==========================================
+# =========================================================
 # MOHIT BANKING SYSTEM
-# ==========================================
+# =========================================================
+
+BANK_NAME = "MOHIT BANKING SYSTEM"
 
 app.secret_key = os.environ.get(
     "SECRET_KEY",
     "mohit-banking-demo-key"
 )
-
-BANK_NAME = "MOHIT BANKING SYSTEM"
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
@@ -30,154 +31,132 @@ if DATABASE_URL.startswith("postgres://"):
     )
 
 
-# ==========================================
+# =========================================================
 # DATABASE CONNECTION
-# ==========================================
+# =========================================================
 
 def get_connection():
     if not DATABASE_URL:
         raise RuntimeError(
-            "DATABASE_URL environment variable is missing."
+            "DATABASE_URL is not configured."
         )
 
     return psycopg2.connect(
         DATABASE_URL,
-        cursor_factory=RealDictCursor
+        sslmode="require"
     )
 
 
-# ==========================================
+# =========================================================
 # CREATE DATABASE TABLES
-# ==========================================
+# =========================================================
 
 def init_database():
 
     conn = get_connection()
 
     try:
+        cur = conn.cursor()
 
-        with conn.cursor() as cur:
+        # USERS TABLE
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS users ("
+            "id SERIAL PRIMARY KEY,"
+            "account_no VARCHAR(30) UNIQUE NOT NULL,"
+            "name VARCHAR(120) NOT NULL,"
+            "email VARCHAR(160),"
+            "phone VARCHAR(30),"
+            "account_type VARCHAR(40) NOT NULL DEFAULT 'Savings Account',"
+            "password_hash TEXT NOT NULL,"
+            "balance NUMERIC(14,2) NOT NULL DEFAULT 0,"
+            "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
 
-            # USERS TABLE
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    account_no VARCHAR(50) UNIQUE NOT NULL,
-                    name VARCHAR(150) NOT NULL,
-                    email VARCHAR(150),
-                    phone VARCHAR(30),
-                    account_type VARCHAR(50) NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    balance NUMERIC(14,2) NOT NULL DEFAULT 0.00,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+        # TRANSACTIONS TABLE
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS transactions ("
+            "id SERIAL PRIMARY KEY,"
+            "transaction_id VARCHAR(80) UNIQUE NOT NULL,"
+            "account_no VARCHAR(30) NOT NULL,"
+            "sender_account VARCHAR(30),"
+            "receiver_account VARCHAR(30),"
+            "amount NUMERIC(14,2) NOT NULL,"
+            "transaction_type VARCHAR(50) NOT NULL,"
+            "title VARCHAR(120),"
+            "description TEXT,"
+            "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        )
 
-            # TRANSACTIONS TABLE
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS transactions (
-                    id SERIAL PRIMARY KEY,
-                    transaction_id VARCHAR(100) UNIQUE NOT NULL,
-                    account_no VARCHAR(50) NOT NULL,
-                    sender_account VARCHAR(50),
-                    receiver_account VARCHAR(50),
-                    amount NUMERIC(14,2) NOT NULL,
-                    transaction_type VARCHAR(50) NOT NULL,
-                    title VARCHAR(200),
-                    description TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+        # CREATE ADMIN
+        cur.execute(
+            "SELECT id FROM users "
+            "WHERE account_no = %s",
+            ("ADMIN001",)
+        )
 
-            # CREATE ADMIN ACCOUNT
+        admin_exists = cur.fetchone()
+
+        if admin_exists is None:
+
             cur.execute(
-                """
-                SELECT id
-                FROM users
-                WHERE account_no = %s
-                """,
-                ("ADMIN001",)
+                "INSERT INTO users "
+                "(account_no,name,email,phone,account_type,"
+                "password_hash,balance) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    "ADMIN001",
+                    "Mohit Banking Admin",
+                    "admin@mohitbanking.com",
+                    "",
+                    "Admin",
+                    generate_password_hash("admin123"),
+                    Decimal("0.00")
+                )
             )
 
-            admin = cur.fetchone()
-
-            if admin is None:
-
-                cur.execute(
-                    """
-                    INSERT INTO users
-                    (
-                        account_no,
-                        name,
-                        email,
-                        phone,
-                        account_type,
-                        password_hash,
-                        balance
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        "ADMIN001",
-                        "Mohit Banking Admin",
-                        "admin@mohitbanking.com",
-                        "",
-                        "Admin",
-                        generate_password_hash("admin123"),
-                        Decimal("0.00")
-                    )
-                )
-
         conn.commit()
-
-        print("DATABASE INITIALIZED SUCCESSFULLY")
-
-    except Exception as e:
-
-        conn.rollback()
-
-        print("DATABASE INITIALIZATION ERROR:", e)
-
-        raise
+        cur.close()
 
     finally:
-
         conn.close()
 
 
-# ==========================================
-# INITIALIZE DATABASE
-# ==========================================
+# =========================================================
+# DATABASE CHECK
+# =========================================================
 
-if DATABASE_URL:
+def database_ready():
 
     try:
         init_database()
+        return True
 
-    except Exception as e:
+    except Exception:
 
-        print("DATABASE STARTUP ERROR:", e)
+        app.logger.exception(
+            "DATABASE INITIALIZATION ERROR"
+        )
 
-else:
-
-    print("WARNING: DATABASE_URL is not configured.")
+        return False
 
 
-# ==========================================
-# BRANDING
-# ==========================================
+# =========================================================
+# BRAND NAME
+# =========================================================
 
 @app.context_processor
-def inject_brand():
+def inject_brand_name():
 
     return {
         "brand_name": BANK_NAME
     }
 
 
-# ==========================================
+# =========================================================
 # LOGIN REQUIRED
-# ==========================================
+# =========================================================
 
 def login_required(function):
 
@@ -185,11 +164,6 @@ def login_required(function):
     def wrapper(*args, **kwargs):
 
         if "account_no" not in session:
-
-            flash(
-                "Please login first.",
-                "error"
-            )
 
             return redirect(
                 url_for("login")
@@ -200,16 +174,16 @@ def login_required(function):
     return wrapper
 
 
-# ==========================================
+# =========================================================
 # ADMIN REQUIRED
-# ==========================================
+# =========================================================
 
 def admin_required(function):
 
     @wraps(function)
     def wrapper(*args, **kwargs):
 
-        if not session.get("is_admin"):
+        if session.get("is_admin") is not True:
 
             flash(
                 "Admin access required.",
@@ -225,9 +199,9 @@ def admin_required(function):
     return wrapper
 
 
-# ==========================================
+# =========================================================
 # GET USER
-# ==========================================
+# =========================================================
 
 def get_user(account_no):
 
@@ -235,32 +209,48 @@ def get_user(account_no):
 
     try:
 
-        with conn.cursor() as cur:
+        cur = conn.cursor(
+            cursor_factory=RealDictCursor
+        )
 
-            cur.execute(
-                """
-                SELECT *
-                FROM users
-                WHERE account_no = %s
-                """,
-                (account_no,)
-            )
+        cur.execute(
+            "SELECT id,account_no,name,email,phone,"
+            "account_type,balance,created_at "
+            "FROM users WHERE account_no = %s",
+            (account_no,)
+        )
 
-            return cur.fetchone()
+        return cur.fetchone()
 
     finally:
 
         conn.close()
 
 
-# ==========================================
+# =========================================================
+# TRANSACTION ID
+# =========================================================
+
+def make_transaction_id():
+
+    return (
+        "TXN-"
+        + datetime.now().strftime(
+            "%Y%m%d%H%M%S"
+        )
+        + "-"
+        + uuid.uuid4().hex[:6].upper()
+    )
+
+
+# =========================================================
 # HOME
-# ==========================================
+# =========================================================
 
 @app.route("/")
 def home():
 
-    if session.get("account_no"):
+    if "account_no" in session:
 
         if session.get("is_admin"):
 
@@ -277,9 +267,9 @@ def home():
     )
 
 
-# ==========================================
+# =========================================================
 # LOGIN
-# ==========================================
+# =========================================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -289,47 +279,103 @@ def login():
         account_no = request.form.get(
             "account_no",
             ""
-        ).strip()
+        ).strip().upper()
 
         password = request.form.get(
             "password",
             ""
         )
 
-        user = get_user(account_no)
+        if not account_no or not password:
 
-        if user and check_password_hash(
-            user["password_hash"],
-            password
-        ):
-
-            session["account_no"] = user["account_no"]
-
-            session["is_admin"] = (
-                user["account_type"] == "Admin"
+            flash(
+                "Enter account number and password.",
+                "error"
             )
 
-            if session["is_admin"]:
+            return render_template(
+                "login.html"
+            )
 
-                return redirect(
-                    url_for("admin")
+        try:
+
+            if not database_ready():
+
+                flash(
+                    "Database is not connected.",
+                    "error"
                 )
 
-            return redirect(
-                url_for("dashboard")
+                return render_template(
+                    "login.html"
+                )
+
+            conn = get_connection()
+
+            cur = conn.cursor(
+                cursor_factory=RealDictCursor
             )
 
-        flash(
-            "Invalid account number or password.",
-            "error"
-        )
+            cur.execute(
+                "SELECT * FROM users "
+                "WHERE account_no = %s",
+                (account_no,)
+            )
 
-    return render_template("login.html")
+            user = cur.fetchone()
+
+            cur.close()
+            conn.close()
+
+            if user and check_password_hash(
+                user["password_hash"],
+                password
+            ):
+
+                session.clear()
+
+                session["account_no"] = (
+                    user["account_no"]
+                )
+
+                session["is_admin"] = (
+                    user["account_type"] == "Admin"
+                )
+
+                if session["is_admin"]:
+
+                    return redirect(
+                        url_for("admin")
+                    )
+
+                return redirect(
+                    url_for("dashboard")
+                )
+
+            flash(
+                "Invalid account number or password.",
+                "error"
+            )
+
+        except Exception:
+
+            app.logger.exception(
+                "LOGIN ERROR"
+            )
+
+            flash(
+                "Unable to login. Please try again.",
+                "error"
+            )
+
+    return render_template(
+        "login.html"
+    )
 
 
-# ==========================================
+# =========================================================
 # LOGOUT
-# ==========================================
+# =========================================================
 
 @app.route("/logout")
 def logout():
@@ -341,9 +387,9 @@ def logout():
     )
 
 
-# ==========================================
+# =========================================================
 # REGISTER
-# ==========================================
+# =========================================================
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -380,11 +426,11 @@ def register():
             ""
         )
 
-        # NAME VALIDATION
-        if not name:
+        # BASIC VALIDATION
+        if not name or not email or not phone:
 
             flash(
-                "Please enter your full name.",
+                "Please fill all required fields.",
                 "error"
             )
 
@@ -392,7 +438,6 @@ def register():
                 "register.html"
             )
 
-        # PASSWORD VALIDATION
         if len(password) < 6:
 
             flash(
@@ -404,7 +449,6 @@ def register():
                 "register.html"
             )
 
-        # CONFIRM PASSWORD
         if password != confirm_password:
 
             flash(
@@ -416,528 +460,460 @@ def register():
                 "register.html"
             )
 
-        # ACCOUNT TYPE
-        if account_type not in [
+        if account_type not in (
             "Savings Account",
-            "Current Account",
-            "Savings",
-            "Current"
-        ]:
+            "Current Account"
+        ):
 
             account_type = "Savings Account"
 
-        conn = get_connection()
+        conn = None
 
         try:
 
-            with conn.cursor() as cur:
+            # MAKE SURE TABLES EXIST
+            if not database_ready():
 
-                # GET LAST NUMERIC ACCOUNT
-                cur.execute(
-                    """
-                    SELECT account_no
-                    FROM users
-                    WHERE account_no ~ '^[0-9]+$'
-                    ORDER BY account_no::BIGINT DESC
-                    LIMIT 1
-                    """
+                flash(
+                    "Database is not connected. "
+                    "Check DATABASE_URL on Render.",
+                    "error"
                 )
 
-                last_account = cur.fetchone()
-
-                if last_account:
-
-                    new_account_no = (
-                        int(last_account["account_no"]) + 1
-                    )
-
-                else:
-
-                    new_account_no = 100001
-
-                account_no = str(
-                    new_account_no
+                return render_template(
+                    "register.html"
                 )
 
-                # INSERT USER
-                cur.execute(
-                    """
-                    INSERT INTO users
-                    (
-                        account_no,
-                        name,
-                        email,
-                        phone,
-                        account_type,
-                        password_hash,
-                        balance
-                    )
-                    VALUES
-                    (%s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        account_no,
-                        name,
-                        email,
-                        phone,
-                        account_type,
-                        generate_password_hash(
-                            password
-                        ),
-                        Decimal("0.00")
-                    )
+            conn = get_connection()
+
+            cur = conn.cursor()
+
+            # GET LAST NUMERIC ACCOUNT NUMBER
+            cur.execute(
+                "SELECT COALESCE("
+                "MAX(CASE "
+                "WHEN account_no ~ '^[0-9]+$' "
+                "THEN CAST(account_no AS BIGINT) "
+                "ELSE 100000 END),"
+                "100000) "
+                "FROM users"
+            )
+
+            last_number = cur.fetchone()[0]
+
+            account_no = str(
+                int(last_number) + 1
+            )
+
+            password_hash = generate_password_hash(
+                password
+            )
+
+            # INSERT NEW USER
+            cur.execute(
+                "INSERT INTO users "
+                "(account_no,name,email,phone,"
+                "account_type,password_hash,balance) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    account_no,
+                    name,
+                    email,
+                    phone,
+                    account_type,
+                    password_hash,
+                    Decimal("0.00")
                 )
+            )
 
             conn.commit()
 
-            return render_template(
-                "register.html",
-                created_account=account_no,
-                created_name=name
-            )
-
-        except Exception as e:
-
-            conn.rollback()
-
-            print(
-                "REGISTRATION ERROR:",
-                repr(e)
-            )
+            cur.close()
+            conn.close()
 
             flash(
-                "Unable to create account. Please try again.",
-                "error"
+                "Account created successfully! "
+                "Your Account Number is "
+                + account_no,
+                "success"
             )
 
-        finally:
+            return redirect(
+                url_for("login")
+            )
 
-            conn.close()
+        except Exception:
+
+            app.logger.exception(
+                "REGISTRATION ERROR"
+            )
+
+            if conn:
+
+                try:
+                    conn.rollback()
+                    conn.close()
+                except Exception:
+                    pass
+
+            flash(
+                "Unable to create account. "
+                "Please try again.",
+                "error"
+            )
 
     return render_template(
         "register.html"
     )
 
 
-# ==========================================
-# TRANSACTION FORMAT
-# ==========================================
-
-def format_transaction(row):
-
-    transaction = dict(row)
-
-    amount = Decimal(
-        transaction["amount"]
-    )
-
-    transaction_type = (
-        transaction["transaction_type"]
-    )
-
-    if transaction_type in [
-        "DEPOSIT",
-        "TRANSFER_RECEIVED"
-    ]:
-
-        transaction["amount"] = (
-            f"+₹{amount:,.2f}"
-        )
-
-    else:
-
-        transaction["amount"] = (
-            f"-₹{amount:,.2f}"
-        )
-
-    transaction["type"] = transaction_type
-
-    if transaction.get("created_at"):
-
-        transaction["date"] = (
-            transaction["created_at"]
-            .strftime("%d %b %Y, %I:%M %p")
-        )
-
-    else:
-
-        transaction["date"] = ""
-
-    return transaction
-
-
-# ==========================================
+# =========================================================
 # DASHBOARD
-# ==========================================
+# =========================================================
 
 @app.route("/dashboard")
 @login_required
 def dashboard():
 
-    account_no = session["account_no"]
-
-    conn = get_connection()
-
     try:
 
-        with conn.cursor() as cur:
+        account_no = session["account_no"]
 
-            cur.execute(
-                """
-                SELECT *
-                FROM users
-                WHERE account_no = %s
-                """,
-                (account_no,)
+        user = get_user(
+            account_no
+        )
+
+        if user is None:
+
+            session.clear()
+
+            flash(
+                "Account not found.",
+                "error"
             )
 
-            user = cur.fetchone()
+            return redirect(
+                url_for("login")
+            )
 
-            if not user:
+        conn = get_connection()
 
-                session.clear()
+        cur = conn.cursor(
+            cursor_factory=RealDictCursor
+        )
 
-                return redirect(
-                    url_for("login")
+        cur.execute(
+            "SELECT transaction_id,amount,"
+            "transaction_type,title,description,"
+            "sender_account,receiver_account,"
+            "created_at "
+            "FROM transactions "
+            "WHERE account_no = %s "
+            "ORDER BY created_at DESC "
+            "LIMIT 10",
+            (account_no,)
+        )
+
+        rows = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        transactions = []
+
+        for row in rows:
+
+            transaction_type = (
+                row["transaction_type"]
+            )
+
+            if transaction_type == "DEPOSIT":
+
+                display_type = "deposit"
+
+                title = (
+                    row["title"]
+                    or "Deposit"
                 )
 
-            cur.execute(
-                """
-                SELECT *
-                FROM transactions
-                WHERE account_no = %s
-                ORDER BY created_at DESC
-                LIMIT 20
-                """,
-                (account_no,)
-            )
+            elif transaction_type == "WITHDRAW":
 
-            transactions = [
-                format_transaction(row)
-                for row in cur.fetchall()
-            ]
+                display_type = "withdraw"
+
+                title = (
+                    row["title"]
+                    or "Withdrawal"
+                )
+
+            elif transaction_type == "TRANSFER_SENT":
+
+                display_type = "transfer"
+
+                title = (
+                    row["title"]
+                    or "Money Sent"
+                )
+
+            else:
+
+                display_type = "transfer_received"
+
+                title = (
+                    row["title"]
+                    or "Money Received"
+                )
+
+            transactions.append(
+                {
+                    "transaction_id":
+                        row["transaction_id"],
+
+                    "amount":
+                        float(row["amount"]),
+
+                    "type":
+                        display_type,
+
+                    "title":
+                        title,
+
+                    "description":
+                        row["description"] or "",
+
+                    "sender_account":
+                        row["sender_account"] or "",
+
+                    "receiver_account":
+                        row["receiver_account"] or "",
+
+                    "date":
+                        row["created_at"].strftime(
+                            "%d %b %Y, %I:%M %p"
+                        )
+                        if row["created_at"]
+                        else ""
+                }
+            )
 
         return render_template(
             "dashboard.html",
             user=user,
-            balance=user["balance"],
+            balance=float(
+                user["balance"] or 0
+            ),
             transactions=transactions
         )
 
-    finally:
+    except Exception:
 
-        conn.close()
+        app.logger.exception(
+            "DASHBOARD ERROR"
+        )
+
+        flash(
+            "Unable to load dashboard.",
+            "error"
+        )
+
+        return redirect(
+            url_for("login")
+        )
 
 
-# ==========================================
+# =========================================================
 # DEPOSIT
-# ==========================================
+# =========================================================
 
 @app.route("/deposit", methods=["POST"])
 @login_required
 def deposit():
 
+    conn = None
+
     try:
 
         amount = Decimal(
             request.form.get(
                 "amount",
                 "0"
+            ).strip()
+        )
+
+        if amount <= 0:
+
+            flash(
+                "Enter a valid amount.",
+                "error"
+            )
+
+            return redirect(
+                url_for("dashboard")
+            )
+
+        conn = get_connection()
+
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT balance FROM users "
+            "WHERE account_no = %s "
+            "FOR UPDATE",
+            (session["account_no"],)
+        )
+
+        row = cur.fetchone()
+
+        if row is None:
+
+            raise ValueError(
+                "Account not found"
+            )
+
+        new_balance = (
+            row[0] + amount
+        )
+
+        cur.execute(
+            "UPDATE users SET balance = %s "
+            "WHERE account_no = %s",
+            (
+                new_balance,
+                session["account_no"]
             )
         )
 
-    except InvalidOperation:
+        cur.execute(
+            "INSERT INTO transactions "
+            "(transaction_id,account_no,amount,"
+            "transaction_type,title,description) "
+            "VALUES (%s,%s,%s,%s,%s,%s)",
+            (
+                make_transaction_id(),
+                session["account_no"],
+                amount,
+                "DEPOSIT",
+                "Cash Deposit",
+                "Money deposited"
+            )
+        )
 
-        amount = Decimal("0")
+        conn.commit()
 
-    if amount <= 0:
+        cur.close()
+        conn.close()
+
+        flash(
+            "Money deposited successfully.",
+            "success"
+        )
+
+    except (InvalidOperation, ValueError):
+
+        if conn:
+
+            try:
+                conn.rollback()
+                conn.close()
+            except Exception:
+                pass
 
         flash(
             "Enter a valid amount.",
             "error"
         )
 
-        return redirect(
-            url_for("dashboard")
+    except Exception:
+
+        app.logger.exception(
+            "DEPOSIT ERROR"
         )
 
-    conn = get_connection()
+        if conn:
 
-    try:
-
-        with conn.cursor() as cur:
-
-            cur.execute(
-                """
-                SELECT balance
-                FROM users
-                WHERE account_no = %s
-                FOR UPDATE
-                """,
-                (session["account_no"],)
-            )
-
-            user = cur.fetchone()
-
-            if not user:
-
-                flash(
-                    "Account not found.",
-                    "error"
-                )
-
-                return redirect(
-                    url_for("login")
-                )
-
-            new_balance = (
-                Decimal(user["balance"])
-                + amount
-            )
-
-            cur.execute(
-                """
-                UPDATE users
-                SET balance = %s
-                WHERE account_no = %s
-                """,
-                (
-                    new_balance,
-                    session["account_no"]
-                )
-            )
-
-            cur.execute(
-                """
-                INSERT INTO transactions
-                (
-                    transaction_id,
-                    account_no,
-                    receiver_account,
-                    amount,
-                    transaction_type,
-                    title,
-                    description
-                )
-                VALUES
-                (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    "TXN-" + uuid.uuid4().hex[:12].upper(),
-                    session["account_no"],
-                    session["account_no"],
-                    amount,
-                    "DEPOSIT",
-                    "Cash Deposit",
-                    "Amount deposited into account"
-                )
-            )
-
-        conn.commit()
+            try:
+                conn.rollback()
+                conn.close()
+            except Exception:
+                pass
 
         flash(
-            f"₹{amount:,.2f} deposited successfully.",
-            "success"
-        )
-
-    except Exception as e:
-
-        conn.rollback()
-
-        print(
-            "DEPOSIT ERROR:",
-            repr(e)
-        )
-
-        flash(
-            "Unable to process deposit.",
+            "Deposit failed.",
             "error"
         )
-
-    finally:
-
-        conn.close()
 
     return redirect(
         url_for("dashboard")
     )
 
 
-# ==========================================
+# =========================================================
 # WITHDRAW
-# ==========================================
+# =========================================================
 
 @app.route("/withdraw", methods=["POST"])
 @login_required
 def withdraw():
 
+    conn = None
+
     try:
 
         amount = Decimal(
             request.form.get(
                 "amount",
                 "0"
-            )
+            ).strip()
         )
 
-    except InvalidOperation:
+        if amount <= 0:
 
-        amount = Decimal("0")
-
-    if amount <= 0:
-
-        flash(
-            "Enter a valid amount.",
-            "error"
-        )
-
-        return redirect(
-            url_for("dashboard")
-        )
-
-    conn = get_connection()
-
-    try:
-
-        with conn.cursor() as cur:
-
-            cur.execute(
-                """
-                SELECT balance
-                FROM users
-                WHERE account_no = %s
-                FOR UPDATE
-                """,
-                (session["account_no"],)
+            flash(
+                "Enter a valid amount.",
+                "error"
             )
 
-            user = cur.fetchone()
-
-            if not user:
-
-                flash(
-                    "Account not found.",
-                    "error"
-                )
-
-                return redirect(
-                    url_for("login")
-                )
-
-            balance = Decimal(
-                user["balance"]
+            return redirect(
+                url_for("dashboard")
             )
 
-            if amount > balance:
+        conn = get_connection()
 
-                flash(
-                    "Insufficient balance.",
-                    "error"
-                )
+        cur = conn.cursor()
 
-                return redirect(
-                    url_for("dashboard")
-                )
+        cur.execute(
+            "SELECT balance FROM users "
+            "WHERE account_no = %s "
+            "FOR UPDATE",
+            (session["account_no"],)
+        )
 
-            new_balance = (
-                balance - amount
+        row = cur.fetchone()
+
+        if row is None:
+
+            raise ValueError(
+                "Account not found"
             )
 
-            cur.execute(
-                """
-                UPDATE users
-                SET balance = %s
-                WHERE account_no = %s
-                """,
-                (
-                    new_balance,
-                    session["account_no"]
-                )
+        if row[0] < amount:
+
+            conn.rollback()
+            cur.close()
+            conn.close()
+
+            flash(
+                "Insufficient balance.",
+                "error"
             )
 
-            cur.execute(
-                """
-                INSERT INTO transactions
-                (
-                    transaction_id,
-                    account_no,
-                    sender_account,
-                    amount,
-                    transaction_type,
-                    title,
-                    description
-                )
-                VALUES
-                (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    "TXN-" + uuid.uuid4().hex[:12].upper(),
-                    session["account_no"],
-                    session["account_no"],
-                    amount,
-                    "WITHDRAW",
-                    "Cash Withdrawal",
-                    "Amount withdrawn from account"
-                )
+            return redirect(
+                url_for("dashboard")
             )
 
-        conn.commit()
-
-        flash(
-            f"₹{amount:,.2f} withdrawn successfully.",
-            "success"
+        new_balance = (
+            row[0] - amount
         )
 
-    except Exception as e:
-
-        conn.rollback()
-
-        print(
-            "WITHDRAW ERROR:",
-            repr(e)
-        )
-
-        flash(
-            "Unable to process withdrawal.",
-            "error"
-        )
-
-    finally:
-
-        conn.close()
-
-    return redirect(
-        url_for("dashboard")
-    )
-
-
-# ==========================================
-# MONEY TRANSFER
-# ==========================================
-
-@app.route("/transfer", methods=["GET", "POST"])
-@login_required
-def transfer():
-
-    if request.method == "GET":
-
-        return render_template(
-            "transfer.html"
-        )
-
-    sender_account = session["account_no"]
-
-    receiver_account = request.form.get(
-        "receiver_account",
-        ""
-    ).strip()
-
-    description = request.form.get(
-        "description",
-        ""
-    ).strip()
-
-    try:
-
-        amount = Decimal(
-            request.
+        cur.execute(
+            "UPDATE users SET balance = %s "
+            "WHERE account_no
