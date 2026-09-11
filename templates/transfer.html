@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Money Transfer | MOHIT BANKING SYSTEM</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
+            background:
+                radial-gradient(circle at top, #2a220d 0%, #101010 45%, #050505 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 25px;
+        }
+
+        .transfer-container {
+            width: 100%;
+            max-width: 520px;
+            background: rgba(20, 20, 20, 0.97);
+            border: 1px solid #b99735;
+            border-radius: 22px;
+            padding: 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .icon {
+            width: 65px;
+            height: 65px;
+            margin: 0 auto 15px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 50%;
+            border: 1px solid #d4af37;
+
+            color: #d4af37;
+            font-size: 30px;
+            font-weight: bold;
+
+            background: #0c0c0c;
+            box-shadow: 0 0 25px rgba(212, 175, 55, 0.15);
+        }
+
+        .header h1 {
+            color: #d4af37;
+            font-size: 26px;
+            letter-spacing: 1.5px;
+        }
+
+        .header p {
+            color: #999;
+            font-size: 14px;
+            margin-top: 7px;
+        }
+
+        .flash-message {
+            background: #241e0c;
+            border: 1px solid #80691f;
+            color: #ead58d;
+
+            padding: 12px 14px;
+            border-radius: 10px;
+
+            margin-bottom: 18px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 19px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+
+            color: #ddd;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+
+            padding: 14px 15px;
+
+            background: #0b0b0b;
+            color: white;
+
+            border: 1px solid #414141;
+            border-radius: 11px;
+
+            outline: none;
+            font-size: 15px;
+
+            transition: 0.25s;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: #d4af37;
+
+            box-shadow:
+                0 0 0 3px rgba(212, 175, 55, 0.10);
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: #666;
+        }
+
+        textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        .amount-box {
+            position: relative;
+        }
+
+        .currency {
+            position: absolute;
+
+            left: 15px;
+            top: 50%;
+
+            transform: translateY(-50%);
+
+            color: #d4af37;
+            font-weight: bold;
+            font-size: 17px;
+        }
+
+        .amount-box input {
+            padding-left: 35px;
+        }
+
+        .transfer-btn {
+            width: 100%;
+
+            margin-top: 5px;
+            padding: 15px;
+
+            border: none;
+            border-radius: 11px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #d4af37,
+                    #b58a20
+                );
+
+            color: #080808;
+
+            font-size: 16px;
+            font-weight: bold;
+
+            cursor: pointer;
+
+            transition: 0.25s;
+
+            box-shadow:
+                0 8px 20px rgba(212, 175, 55, 0.12);
+        }
+
+        .transfer-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.08);
+        }
+
+        .transfer-btn:active {
+            transform: translateY(0);
+        }
+
+        .back-btn {
+            display: block;
+
+            text-align: center;
+
+            margin-top: 19px;
+
+            color: #d4af37;
+            text-decoration: none;
+
+            font-size: 14px;
+        }
+
+        .back-btn:hover {
+            text-decoration: underline;
+        }
+
+        .security-note {
+            margin-top: 23px;
+            padding-top: 17px;
+
+            border-top: 1px solid #303030;
+
+            text-align: center;
+
+            color: #777;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 480px) {
+
+            body {
+                padding: 14px;
+            }
+
+            .transfer-container {
+                padding: 23px 18px;
+                border-radius: 17px;
+            }
+
+            .header h1 {
+                font-size: 21px;
+            }
+
+            .icon {
+                width: 58px;
+                height: 58px;
+                font-size: 26px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="transfer-container">
+
+        <div class="header">
+
+            <div class="icon">
+                ₹
+            </div>
+
+            <h1>MOHIT BANKING SYSTEM</h1>
+
+            <p>Secure Money Transfer</p>
+
+        </div>
+
+
+        <!-- Flash Messages -->
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+
+            {% if messages %}
+
+                {% for category, message in messages %}
+
+                    <div class="flash-message">
+                        {{ message }}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+
+        <!-- Money Transfer Form -->
+
+        <form method="POST" action="{{ url_for('transfer') }}">
+
+            <div class="form-group">
+
+                <label for="receiver_account">
+                    Receiver Account Number
+                </label>
+
+                <input
+                    type="text"
+                    id="receiver_account"
+                    name="receiver_account"
+                    placeholder="Enter receiver account number"
+                    autocomplete="off"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="amount">
+                    Transfer Amount
+                </label>
+
+                <div class="amount-box">
+
+                    <span class="currency">₹</span>
+
+                    <input
+                        type="number"
+                        id="amount"
+                        name="amount"
+                        placeholder="Enter amount"
+                        min="1"
+                        step="0.01"
+                        required
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="description">
+                    Remark / Description
+                    <span style="color:#777;">
+                        (Optional)
+                    </span>
+                </label>
+
+                <textarea
+                    id="description"
+                    name="description"
+                    maxlength="200"
+                    placeholder="Enter a short remark..."
+                ></textarea>
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="transfer-btn"
+            >
+                💸 Transfer Money
+            </button>
+
+        </form>
+
+
+        <a
+            href="{{ url_for('dashboard') }}"
+            class="back-btn"
+        >
+            ← Back to Dashboard
+        </a>
+
+
+        <div class="security-note">
+
+            🔒 Please verify the receiver account number
+            before transferring money.
+
+            <br>
+
+            Transfer will be processed only when
+            sufficient balance is available.
+
+        </div>
+
+    </div>
+
+</body>
+</html>
